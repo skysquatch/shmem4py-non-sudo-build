@@ -630,8 +630,14 @@ Add `--with-hwloc="$LOCAL_PREFIX"` to the configure command.
 ~/shmem-build/  ← build workspace (safe to delete after everything works)
 ```
 
-To uninstall everything cleanly:
+To uninstall everything cleanly, use the companion script:
+
 ```bash
-rm -rf ~/local ~/shmem-build ~/shmem-venv
-# Then remove the lines added to ~/.bashrc between the === markers
+chmod +x uninstall_shmem4py.sh
+./uninstall_shmem4py.sh
 ```
+
+It removes `~/local`, `~/shmem-build`, `~/shmem-venv`, `~/.shmemrc`, the
+install log, and the two-line sourcing block from `~/.bashrc` — with a
+confirmation prompt and a `~/.bashrc` backup before making any changes. See
+`uninstall_shmem4py_guide.md` for full usage details.

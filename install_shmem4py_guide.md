@@ -339,18 +339,34 @@ constructed from the version variables throughout the script.
 
 ## Uninstalling
 
-To remove everything the script installed:
+Use the companion `uninstall_shmem4py.sh` script. It handles everything
+automatically and safely.
 
 ```bash
-rm -rf ~/local ~/shmem-build ~/shmem-venv ~/shmem-install.log ~/.shmemrc
+chmod +x uninstall_shmem4py.sh
+./uninstall_shmem4py.sh
 ```
 
-Then remove the two-line sourcing block from `~/.bashrc`:
+It removes:
+- `$HOME/local` — all compiled binaries and libraries
+- `$HOME/shmem-build` — all downloaded tarballs and build trees
+- `$HOME/shmem-venv` — the Python virtual environment
+- `~/.shmemrc` — the environment file
+- `$HOME/shmem-install.log` — the install log
+- The two-line sourcing block in `~/.bashrc`
 
-```bash
-# shmem4py stack
-[[ -f "$HOME/.shmemrc" ]] && source "$HOME/.shmemrc"
+Before touching `~/.bashrc` the script creates a backup at
+`~/.bashrc.shmem-uninstall-backup`.
+
+**Flags:**
+
 ```
+./uninstall_shmem4py.sh            # interactive — confirms before deleting
+./uninstall_shmem4py.sh --force    # skip confirmation prompt
+./uninstall_shmem4py.sh --dry-run  # show what would be removed, do nothing
+```
+
+See `uninstall_shmem4py_guide.md` for full details.
 
 ---
 
