@@ -66,17 +66,21 @@ export BUILD_DIR="$HOME/shmem-build"
 mkdir -p "$BUILD_DIR"
 ```
 
-Add everything to `~/.bashrc` for persistence across sessions:
+Write all environment settings to `~/.shmemrc`, then add a single line to
+`~/.bashrc` that sources it. This keeps `~/.bashrc` clean and lets you
+activate the environment manually in any shell with `source ~/.shmemrc`.
 
 ```bash
-cat >> ~/.bashrc << 'EOF'
+# Write ~/.shmemrc — all shmem4py environment settings live here
+cat > ~/.shmemrc << 'EOF'
+# ~/.shmemrc — shmem4py environment
+# Activate manually with: source ~/.shmemrc
 
-# === Local shmem4py stack ===
 export LOCAL_PREFIX="$HOME/local"
 export BUILD_DIR="$HOME/shmem-build"
 export PATH="$LOCAL_PREFIX/bin:$PATH"
-export LD_LIBRARY_PATH="$LOCAL_PREFIX/lib:$LOCAL_PREFIX/lib64:$LD_LIBRARY_PATH"
-export PKG_CONFIG_PATH="$LOCAL_PREFIX/lib/pkgconfig:$LOCAL_PREFIX/lib64/pkgconfig:$PKG_CONFIG_PATH"
+export LD_LIBRARY_PATH="$LOCAL_PREFIX/lib:$LOCAL_PREFIX/lib64:${LD_LIBRARY_PATH:-}"
+export PKG_CONFIG_PATH="$LOCAL_PREFIX/lib/pkgconfig:$LOCAL_PREFIX/lib64/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LDFLAGS="-L$LOCAL_PREFIX/lib"
 export CPPFLAGS="-I$LOCAL_PREFIX/include"
 
@@ -87,10 +91,22 @@ export OSHCXX="$LOCAL_PREFIX/bin/oshc++"
 export OSHRUN="$LOCAL_PREFIX/bin/oshrun"
 export UCX_TLS="sm,self"
 export SHMEM_SYMMETRIC_SIZE="128M"
+
+# Activate the Python venv
+source "$HOME/shmem-venv/bin/activate" 2>/dev/null || true
 EOF
 
-source ~/.bashrc
+# Add a single sourcing line to ~/.bashrc (run only once)
+echo '' >> ~/.bashrc
+echo '# shmem4py stack' >> ~/.bashrc
+echo '[[ -f "$HOME/.shmemrc" ]] && source "$HOME/.shmemrc"' >> ~/.bashrc
+
+# Activate in the current shell
+source ~/.shmemrc
 ```
+
+> `~/.shmemrc` uses `>` (overwrite) rather than `>>` (append) so re-running
+> this step always produces a clean, single-copy file.
 
 ---
 
@@ -106,18 +122,12 @@ source "$HOME/shmem-venv/bin/activate"
 # Upgrade pip and install Python build tools
 pip install --upgrade pip
 pip install numpy cython
-
-# Make activation persistent — add to ~/.bashrc
-cat >> ~/.bashrc << 'EOF'
-
-# Activate shmem venv
-source "$HOME/shmem-venv/bin/activate"
-EOF
 ```
 
-> From this point on, every `pip install` targets the venv automatically.
-> To deactivate at any time run `deactivate`; to reactivate run
-> `source "$HOME/shmem-venv/bin/activate"`.
+> The venv activation (`source "$HOME/shmem-venv/bin/activate"`) is already
+> included at the bottom of `~/.shmemrc` written in Step 2, so it will be
+> activated automatically in every new shell. No separate `~/.bashrc` entry
+> is needed.
 
 ---
 
