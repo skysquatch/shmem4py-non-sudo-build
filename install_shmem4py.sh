@@ -419,7 +419,6 @@ header "Step 8 · PMIx ${PMIX_VERSION}"
 if command -v pmix_info &>/dev/null; then
     warn "PMIx already installed — skipping"
 else
-    HWLOC=$(which lstopo)
     build_autotools "PMIx ${PMIX_VERSION}" \
         "_NEVER_EXISTS_SENTINEL_" \
         "https://github.com/pmix/pmix/releases/download/v${PMIX_VERSION}/pmix-${PMIX_VERSION}.tar.bz2" \
