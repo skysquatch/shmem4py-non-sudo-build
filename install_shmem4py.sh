@@ -396,7 +396,7 @@ fi  # end TEST_ONLY guard
 if [[ "$TEST_ONLY" == false ]]; then
 header "Step 7 · hwloc ${HWLOC_VERSION}"
 
-if command -v lstopo &>/dev/null; then
+if pkg-config --exists hwloc; then
     warn "hwloc already installed ($(lstopo --version)) — skipping"
 else
     build_autotools "hwloc ${HWLOC_VERSION}" \
