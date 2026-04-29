@@ -525,9 +525,10 @@ if python -c "import shmem4py" &>/dev/null 2>&1; then
 else
     info "Installing shmem4py via pip…"
     CC="$LOCAL_PREFIX/bin/oshcc" \
-    SHMEM_DIR="$LOCAL_PREFIX" \
-    pip install shmem4py >> "$LOG_FILE" 2>&1
-    success "shmem4py $(python -c 'import shmem4py; print(shmem4py.__version__)') installed"
+    cd "$BUILD_DIR"
+    git clone https://github.com/mpi4py/shmem4py.git >> "$LOG_FILE" 2>&1
+    cd shmem4py
+    python3 -m pip install . >> "$LOG_FILE" 2>&1
 fi
 
 fi  # end TEST_ONLY guard
