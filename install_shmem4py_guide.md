@@ -204,6 +204,11 @@ compiled source trees. This directory is safe to delete after a successful
 install to reclaim disk space (~3–4 GB).
 
 **`$HOME/shmem-install.log`** — Full log of every command run and its output.
+The script keeps the terminal quiet: only the coloured status lines (`[INFO]`,
+`[DONE]`, `[SKIP]`, `[ERROR]`, and section headers) appear on screen. All
+output from `./configure`, `make`, `pip`, `git clone`, and other noisy
+commands is sent exclusively to the log file. If a step fails, the log
+contains the full compiler or build output needed to diagnose the problem.
 
 **`~/.shmemrc`** — Contains all environment variables for the shmem4py stack.
 Written fresh on every run (using `>`, not `>>`), so it is always up to date

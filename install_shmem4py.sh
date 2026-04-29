@@ -37,17 +37,36 @@ LOG_FILE="$HOME/shmem-install.log"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; RESET='\033[0m'
 
-info()    { echo -e "${BLUE}[INFO]${RESET}  $*"; }
-success() { echo -e "${GREEN}[DONE]${RESET}  $*"; }
-warn()    { echo -e "${YELLOW}[SKIP]${RESET}  $*"; }
-error()   { echo -e "${RED}[ERROR]${RESET} $*" >&2; }
-header()  { echo -e "\n${BOLD}━━━  $*  ━━━${RESET}"; }
+# Status helpers: coloured output to terminal + plain copy to log file.
+# Noisy commands (configure, make, pip, git) are redirected to the log
+# directly with >> "$LOG_FILE" 2>&1 so they never appear on the terminal.
+info()    { local m="[INFO]  $*"; echo -e "${BLUE}${m}${RESET}";   echo "${m}"    >> "$LOG_FILE"; }
+success() { local m="[DONE]  $*"; echo -e "${GREEN}${m}${RESET}";  echo "${m}"    >> "$LOG_FILE"; }
+warn()    { local m="[SKIP]  $*"; echo -e "${YELLOW}${m}${RESET}"; echo "${m}"    >> "$LOG_FILE"; }
+error()   { local m="[ERROR] $*"; echo -e "${RED}${m}${RESET}" >&2; echo "${m}"  >> "$LOG_FILE"; }
+header()  { local m="━━━  $*  ━━━"; echo -e "\n${BOLD}${m}${RESET}"; echo -e "\n${m}" >> "$LOG_FILE"; }
 
-# ── Logging: tee everything to log file ───────────────────────────────────────
-exec > >(tee -a "$LOG_FILE") 2>&1
-echo "============================================================"
-echo " shmem4py installer — $(date)"
-echo "============================================================"
+# ── Write session header to log only (not terminal) ───────────────────────────
+{
+    echo "============================================================"
+    echo " shmem4py installer — $(date)"
+    echo "============================================================"
+} >> "$LOG_FILE"
+
+# ── ERR trap: when any command fails, show the log tail on the terminal ────────
+# This is essential because configure/make output is silenced to the log;
+# without this the script would exit with no visible explanation.
+on_error() {
+    local exit_code=$?
+    local line_no=$1
+    error "Command failed (exit ${exit_code}) at line ${line_no}."
+    error "Last 40 lines of $LOG_FILE:"
+    echo "" >&2
+    tail -40 "$LOG_FILE" >&2
+    echo "" >&2
+    error "Full log: $LOG_FILE"
+}
+trap 'on_error $LINENO' ERR
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 TEST_ONLY=false
@@ -69,9 +88,9 @@ export CPPFLAGS="-I$LOCAL_PREFIX/include"
 download() {
     local url="$1" dest="$2"
     if command -v wget &>/dev/null; then
-        wget -q --show-progress -O "$dest" "$url"
+        wget -q -O "$dest" "$url" >> "$LOG_FILE" 2>&1
     elif command -v curl &>/dev/null; then
-        curl -fL --progress-bar -o "$dest" "$url"
+        curl -fsSL -o "$dest" "$url" >> "$LOG_FILE" 2>&1
     else
         error "Neither wget nor curl is available. Cannot download files."
         exit 1
@@ -101,17 +120,20 @@ build_autotools() {
     download "$url" "$archive"
 
     info "Extracting…"
-    tar "${tar_flags}xf" "$archive"
+    tar "${tar_flags}xf" "$archive" >> "$LOG_FILE" 2>&1
     cd "$src_dir"
 
     info "Configuring…"
-    ./configure --prefix="$LOCAL_PREFIX" "${extra_args[@]}"
+    PKG_CONFIG_PATH="$LOCAL_PREFIX/lib/pkgconfig:$LOCAL_PREFIX/lib64/pkgconfig:${PKG_CONFIG_PATH:-}" \
+    LDFLAGS="-L$LOCAL_PREFIX/lib" \
+    CPPFLAGS="-I$LOCAL_PREFIX/include" \
+    ./configure --prefix="$LOCAL_PREFIX" "${extra_args[@]}" >> "$LOG_FILE" 2>&1
 
     info "Compiling with $(nproc) cores…"
-    make -j"$(nproc)"
+    make -j"$(nproc)" >> "$LOG_FILE" 2>&1
 
     info "Installing…"
-    make install
+    make install >> "$LOG_FILE" 2>&1
 
     success "$label installed"
     cd "$BUILD_DIR"
@@ -233,7 +255,7 @@ if [[ -f "$VENV_DIR/bin/activate" ]]; then
     warn "venv already exists at $VENV_DIR — skipping creation"
 else
     info "Creating venv at $VENV_DIR…"
-    python3 -m venv "$VENV_DIR"
+    python3 -m venv "$VENV_DIR" >> "$LOG_FILE" 2>&1
     success "venv created"
 fi
 
@@ -241,8 +263,8 @@ fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 info "Upgrading pip and installing numpy/cython…"
-pip install --upgrade pip -q
-pip install numpy cython -q
+pip install --upgrade pip >> "$LOG_FILE" 2>&1
+pip install numpy cython >> "$LOG_FILE" 2>&1
 success "venv ready: $(python --version)"
 
 fi  # end TEST_ONLY guard
@@ -319,13 +341,16 @@ else
         "https://github.com/openucx/ucx/releases/download/v${UCX_VERSION}/ucx-${UCX_VERSION}.tar.gz" \
         "ucx-${UCX_VERSION}.tar.gz"
 
-    tar xzf "ucx-${UCX_VERSION}.tar.gz"
+    tar xzf "ucx-${UCX_VERSION}.tar.gz" >> "$LOG_FILE" 2>&1
     cd "ucx-${UCX_VERSION}"
 
     info "Configuring UCX…"
     CFLAGS="-Wno-cast-function-type -Wno-old-style-declaration -Wno-implicit-function-declaration" \
     CXXFLAGS="-Wno-cast-function-type" \
     CXX="$GXX_WRAPPER" \
+    PKG_CONFIG_PATH="$LOCAL_PREFIX/lib/pkgconfig:$LOCAL_PREFIX/lib64/pkgconfig:${PKG_CONFIG_PATH:-}" \
+    LDFLAGS="-L$LOCAL_PREFIX/lib" \
+    CPPFLAGS="-I$LOCAL_PREFIX/include" \
     ./configure \
         --prefix="$LOCAL_PREFIX" \
         --enable-shared \
@@ -333,11 +358,11 @@ else
         --without-cuda \
         --without-rocm \
         --without-go \
-        --with-pic
+        --with-pic >> "$LOG_FILE" 2>&1
 
     info "Compiling UCX with $(nproc) cores…"
-    make -j"$(nproc)"
-    make install
+    make -j"$(nproc)" >> "$LOG_FILE" 2>&1
+    make install >> "$LOG_FILE" 2>&1
 
     success "UCX installed: $(ucx_info -v 2>&1 | head -1)"
 fi
@@ -450,15 +475,18 @@ else
         info "Cloning SOS v${SOS_VERSION}…"
         git clone --depth=1 --branch "v${SOS_VERSION}" \
             https://github.com/Sandia-OpenSHMEM/SOS.git \
-            "$local_sos_dir"
+            "$local_sos_dir" >> "$LOG_FILE" 2>&1
     fi
 
     cd "$local_sos_dir"
 
     info "Running autogen.sh…"
-    ./autogen.sh
+    ./autogen.sh >> "$LOG_FILE" 2>&1
 
     info "Configuring SOS…"
+    PKG_CONFIG_PATH="$LOCAL_PREFIX/lib/pkgconfig:$LOCAL_PREFIX/lib64/pkgconfig:${PKG_CONFIG_PATH:-}" \
+    LDFLAGS="-L$LOCAL_PREFIX/lib" \
+    CPPFLAGS="-I$LOCAL_PREFIX/include" \
     ./configure \
         --prefix="$LOCAL_PREFIX" \
         --enable-shared \
@@ -468,11 +496,11 @@ else
         "--with-libevent=$LOCAL_PREFIX" \
         "--with-hwloc=$LOCAL_PREFIX" \
         --enable-pmi-simple \
-        --disable-fortran
+        --disable-fortran >> "$LOG_FILE" 2>&1
 
     info "Compiling SOS with $(nproc) cores…"
-    make -j"$(nproc)"
-    make install
+    make -j"$(nproc)" >> "$LOG_FILE" 2>&1
+    make install >> "$LOG_FILE" 2>&1
 
     success "SOS installed: $(oshcc --version 2>&1 | head -1)"
 fi
@@ -497,7 +525,7 @@ else
     info "Installing shmem4py via pip…"
     CC="$LOCAL_PREFIX/bin/oshcc" \
     SHMEM_DIR="$LOCAL_PREFIX" \
-    pip install shmem4py -q
+    pip install shmem4py >> "$LOG_FILE" 2>&1
     success "shmem4py $(python -c 'import shmem4py; print(shmem4py.__version__)') installed"
 fi
 
