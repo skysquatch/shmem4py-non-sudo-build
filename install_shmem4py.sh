@@ -524,7 +524,8 @@ if python -c "import shmem4py" &>/dev/null 2>&1; then
     warn "shmem4py ${INSTALLED_VER} already installed — skipping"
 else
     info "Installing shmem4py via pip…"
-    CC="$LOCAL_PREFIX/bin/oshcc" \
+    export CC="$LOCAL_PREFIX/bin/oshcc"
+    export CXX="$LOCAL_PREFIX/bin/oshc++"
     cd "$BUILD_DIR"
     git clone https://github.com/mpi4py/shmem4py.git >> "$LOG_FILE" 2>&1
     cd shmem4py
