@@ -479,6 +479,7 @@ else
     fi
 
     cd "$local_sos_dir"
+    git submodule update --init
 
     info "Running autogen.sh…"
     ./autogen.sh >> "$LOG_FILE" 2>&1
