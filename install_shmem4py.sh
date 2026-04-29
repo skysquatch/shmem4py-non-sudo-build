@@ -426,7 +426,7 @@ else
         "pmix-${PMIX_VERSION}" \
         --enable-shared --disable-static --with-pic \
         "--with-libevent=$LOCAL_PREFIX" \
-        "--with-hwloc=$HWLOC"
+        "--with-hwloc=$LOCAL_PREFIX"
     success "PMIx installed"
 fi
 
